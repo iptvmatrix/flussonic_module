@@ -17,6 +17,7 @@ cp -R . $install_dir/$module_name
 rm -rf $install_dir/$module_name/.git
 
 cd $install_dir/$module_name
+mkdir App/tmp
 chmod -R a+x *.sh
 
 printf "${GREEN}Success!\nPlease, add next line to your cron (crontab -e)$NC\n"
