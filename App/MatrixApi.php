@@ -114,7 +114,6 @@ class MatrixApi extends RestAPI
 
         $retVal = json_decode($this->execPost(), true);
 
-        $retVal['heartbeat_url'] = 'http://78.129.174.62/api/wowza/heartbeat';
         $this->answer = $retVal;
 
         if (!is_null($retVal))
@@ -162,7 +161,6 @@ class MatrixApi extends RestAPI
 
         $answer = json_decode($this->execPost(), true);
 
-        $answer['heartbeat_url'] = 'http://78.129.174.62/api/wowza/heartbeat';
         $this->answer = $answer;
 
         if (isset($answer['feeds_update'])) {
@@ -187,6 +185,10 @@ class MatrixApi extends RestAPI
 
         if (isset($answer['sources'])) {
             $this->sources = $answer['sources'];
+        }
+
+        if (isset($answer['heartbeat_url'])) {
+            $this->heartbeat_url = $answer['heartbeat_url'];
         }
 
         pr($answer);
