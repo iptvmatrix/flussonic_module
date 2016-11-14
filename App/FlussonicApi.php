@@ -65,6 +65,78 @@ class FlussonicApi extends RestAPI
     }
 
     /**
+     * getMemUsage
+     *
+     * @return int
+     */
+    public function getMemUsage()
+    {
+        $c = $this->getWSConnection();
+        $c->send("pulse_subscribe:total_memusage");
+
+        $answer = json_decode($c->receive(), true);
+        unset($c);
+
+        return end(end($answer['total_memusage']['minute'])['data'])[1];
+    }
+
+    /**
+     * getCpuUsage
+     *
+     * @return int
+     */
+    public function getCpuUsage()
+    {
+        $c = $this->getWSConnection();
+        $c->send("pulse_subscribe:cpu_usage");
+
+        $answer = json_decode($c->receive(), true);
+        unset($c);
+
+        return end(end($answer['cpu_usage']['minute'])['data'])[1];
+    }
+
+    /**
+     * getNetworkStatus
+     *
+     * @return array
+     */
+    public function getNetworkStatus()
+    {
+        $retArr = ['in' => 0, 'out' => 0];
+
+        $c = $this->getWSConnection();
+        $c->send("pulse_subscribe:overview");
+
+        $answer = json_decode($c->receive(), true);
+
+        foreach ($answer['overview']['minute'] as $report)
+        {
+            if ($report['label'] == 'total_output') {
+                $retArr['out'] = ceil(end($report['data'])[1] / 1000);
+            }
+            else if ($report['label'] == 'total_input') {
+                $retArr['in'] = ceil(end($report['data'])[1] / 1000);
+            }
+        }
+
+        unset($c);
+
+        return $retArr;
+    }
+
+    protected function getWSConnection()
+    {
+        $user = $this->config->flussonic_user;
+        $pwd  = $this->config->flussonic_pwd;
+        $host = str_replace("http://", '', $this->config->flussonic_host);
+
+        $url = "ws://$user:$pwd@$host/flussonic/api/events";
+
+        return new WebSocket\Client($url);
+    }
+
+    /**
      * getStreams
      *
      * Returns all streams data from flussonic WebSocket API
@@ -73,17 +145,12 @@ class FlussonicApi extends RestAPI
      */
     public function getStreams()
     {
-        $user = $this->config->flussonic_user;
-        $pwd  = $this->config->flussonic_pwd;
-        $host = str_replace("http://", '', $this->config->flussonic_host);
-
-        $url = "ws://$user:$pwd@$host/flussonic/api/events";
-
-        $c = new WebSocket\Client($url);
+        $c = $this->getWSConnection();
         $c->send("streams");
 
         $answer = json_decode($c->receive(), true);
         $this->streams = $answer['streams'];
+        unset($c);
 
         return $this->streams;
     }
@@ -107,7 +174,7 @@ class FlussonicApi extends RestAPI
      * @param string $app_name
      * @return array
      */
-    public function getFeeds($app_name)
+    public function getFeeds($app_name, $only_names = false)
     {
         $retArr = [];
 
@@ -118,7 +185,7 @@ class FlussonicApi extends RestAPI
         foreach ($this->streams as $stream)
         {
             if (explode("/", $stream['name'])[0] == $app_name) {
-                $retArr[] = $stream;
+                $retArr[] = $only_names ? $stream['name'] : $stream;
             }
         }
 
@@ -145,6 +212,76 @@ class FlussonicApi extends RestAPI
         {
             if (explode("/", $session['name'])[0] == $app_name) {
                 $retArr[] = $session;
+            }
+        }
+
+        return $retArr;
+    }
+
+
+    /**
+     * getDvrEdgeReplicatedStreams
+     *
+     * @param String $app_name
+     * @return array
+     */
+    public function getDvrEdgeReplicatedStreams($app_name)
+    {
+        if ($edges = $this->getDvrEdges([]))
+        {
+            foreach($edges as $edge) {
+                if ($edge['meta']['comment'] == $app_name) {
+                    return $edge['only'];
+                }
+            }
+        }
+
+        return [];
+    }
+
+    /**
+     * getDvrEdgeSessions
+     *
+     * @param array $origin_streams
+     * @return array
+     */
+    public function getDvrEdgeSessions(array $origin_streams = [])
+    {
+        $retArr = [];
+
+        if (!$this->sessions) {
+            $this->getSessions();
+        }
+
+        foreach ($this->sessions as $session)
+        {
+            if (in_array(explode('/', $session['name'])[0], $origin_streams)) {
+                $retArr[] = $session;
+            }
+        }
+
+        return $retArr;
+
+    }
+
+    /**
+     * getDvrEdgeStreams
+     *
+     * @param array $origin_streams
+     * @return array
+     */
+    public function getDvrEdgeStreams(array $origin_streams = [])
+    {
+        $retArr = [];
+
+        if (!$this->streams) {
+            $this->getStreams();
+        }
+
+        foreach ($this->streams as $stream)
+        {
+            if (in_array($stream['name'], $origin_streams)) {
+                $retArr[] = $stream;
             }
         }
 
@@ -198,6 +335,15 @@ class FlussonicApi extends RestAPI
         return $this->execBinaryPost($name);
     }
 
+    public function deleteSource($source_id)
+    {
+        $source_id = (int) $source_id;
+        $this->action("/flussonic/api/modify_config");
+        $data = '{"sources":{"'. $source_id . '": null}}';
+
+        return $this->execBinaryPost($data);
+    }
+
     /**
      * restartStream
      *
@@ -225,7 +371,7 @@ class FlussonicApi extends RestAPI
             if (empty($flussonic_session['token'])) {
                 continue;
             }
-            pr($flussonic_session['token']);
+
             if (in_array($flussonic_session['token'], $tokens)) {
                 $toRemove .= $toRemove ? "\n" : "";
                 $toRemove .= $flussonic_session['id'];
@@ -245,7 +391,7 @@ class FlussonicApi extends RestAPI
      * @param string $app_name
      * @return string
      */
-    public function hashToToken($hash, $app_name)
+    public function hashToToken($hash, $app_name, $type)
     {
         $hash_pieces = explode('.', $hash);
 
@@ -255,7 +401,18 @@ class FlussonicApi extends RestAPI
         $hash_device_id   = $hash_pieces[4];
         $hash_platform_id = $hash_pieces[3];
 
-        foreach ($this->getClients($app_name) as $session)
+        switch ($type) {
+            case Core::TYPE_DVR_EDGE:
+                $only    = $this->getDvrEdgeReplicatedStreams($app_name);
+                $clients = $this->getDvrEdgeSessions($only);
+                break;
+
+            default:
+                $clients = $this->getClients($app_name);
+                break;
+        }
+
+        foreach ($clients as $session)
         {
             if (empty($session['token'])) {
                 continue;
@@ -279,5 +436,96 @@ class FlussonicApi extends RestAPI
         }
 
         return '';
+    }
+
+    public function setServerClusterKey($key)
+    {
+        $this->action("/flussonic/api/modify_config");
+
+        return $this->execBinaryPost(json_encode(["cluster_key" => $key]));
+    }
+
+    public function updateDvrChannel($name, array $sources, $storage, $depth)
+    {
+        $urls = [];
+        foreach ($sources as $src) {
+            $urls[] = ["url" => $src];
+        }
+
+        $cfg_arr = json_encode([
+            "streams" =>
+            [
+                $name => [
+                    "name" => $name,
+                    "urls" => $urls,
+                    "dvr"  => [
+                        "root" => $storage,
+                        "dvr_limit" => $depth
+                    ]
+                ]
+            ]
+        ]);
+
+        $this->action("/flussonic/api/modify_config");
+
+        return $this->execBinaryPost($cfg_arr);
+    }
+
+    public function getDvrEdges($app_name)
+    {
+        $json_cfg = $this->action("/flussonic/api/read_config")
+            ->execGet();
+        $flussonic_cfg = json_decode($json_cfg, true);
+
+        return isset($flussonic_cfg['sources']) ? $flussonic_cfg['sources'] : [];
+    }
+
+    public function updateDvrEdge($index, $app_name, $data)
+    {
+        $cfg_arr = json_encode([
+            'sources' => [
+                $index => [
+                    "position" => (int) $index,
+                    "urls" => $data['hosts'],
+                    "only" => $data['only'],
+                    "cluster_key" => $data['cluster_key'],
+                    "meta" => ["comment" => $app_name],
+                    "cache" => [
+                        "path" => $data['folder'],
+                        "time_limit" => $data['cache'] * 60 * 60 * 24 //Days to sec
+                    ],
+                ]
+            ]
+        ]);
+
+        $this->action("/flussonic/api/modify_config");
+
+        return $this->execBinaryPost($cfg_arr);
+
+    }
+
+    public function setGlobalAuth($url)
+    {
+        $this->action("/flussonic/api/modify_config");
+
+        return $this->execBinaryPost(json_encode(["auth" => ["url" => $url]]));
+    }
+
+    public function readConfig()
+    {
+        $json_cfg = $this->action("/flussonic/api/read_config")
+            ->execGet();
+
+        return json_decode($json_cfg, true);
+    }
+
+    public function getAllSourcesFromConfig(array $cfg)
+    {
+        return isset($cfg['sources']) ? $cfg['sources'] : [];
+    }
+
+    public function getAllStreamsFromCOnfig(array $cfg)
+    {
+        return isset($cfg['streams']) ? $cfg['streams'] : [];
     }
 }

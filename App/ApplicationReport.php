@@ -23,7 +23,7 @@ class ApplicationReport
     public $toDrop = [];
 
     protected $network_status = [
-        'rtmp' => 0, 'hls' => 0, 'in' => 0, 'out' => 0
+        'rtmp' => 0, 'hls' => 0, 'in' => 0, 'out' => 0, 'cpu' => 0, 'mem' => 0
     ];
 
     //path to file, contains feeds statuses state
@@ -87,6 +87,24 @@ class ApplicationReport
     }
 
     /**
+     * setSystemStatus
+     *
+     * @param array $network
+     * @param int $cpu
+     * @param int $mem
+     * @return $this
+     */
+    public function setSystemStatus(array $network, $cpu, $mem)
+    {
+        $this->network_status['in'] = $network['in'];
+        $this->network_status['out'] = $network['out'];
+        $this->network_status['cpu'] = $cpu;
+        $this->network_status['mem'] = $mem;
+
+        return $this;
+    }
+
+    /**
      * buildReport
      *
      * Build report for Matrix API, report availieble
@@ -110,18 +128,26 @@ class ApplicationReport
             $client_count = isset($feed['client_count']) ? $feed['client_count'] : 0;
 
             $this->feeds_report[$feed_id] = $status;
-
-            $this->network_status['in'] += $bitrate;
-            $this->network_status['out'] += $bitrate * $client_count;
         }
+
+        $this->devices_report = $withDevices ? [] : null;
 
         foreach ($this->sessions as $client)
         {
-            if (isset($this->network_status[$client['type']])) {
-                $this->network_status[$client['type']]++;
+            switch ($client['type']) {
+                case 'hls_dvr':
+                    $type = 'hls';
+                    break;
+
+                default:
+                    $type = $client['type'];
             }
 
-            if (!empty($client['token']) && ($client['duration'] > $this->device_min_lifetime)) {
+            if (isset($this->network_status[$type])) {
+                $this->network_status[$type]++;
+            }
+
+            if (!empty($client['token'])) {
                 $pieces = explode('.', $client['token']);
 
                 $billing_id  = $pieces[0];
@@ -138,7 +164,7 @@ class ApplicationReport
                         "duration" => $client['duration']
                     ];
 
-                    if ($withDevices) {
+                    if ($withDevices && ($client['duration'] > $this->device_min_lifetime)) {
                         $this->devices_report[$billing_id][$portal_id][$user_id][] = "$platform_id.$device_id";
                     }
                 }

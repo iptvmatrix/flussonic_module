@@ -10,6 +10,8 @@ class Core
 {
     const TYPE_ORIGIN = 1;
     const TYPE_EDGE = 2;
+    const TYPE_DVR_ORIGIN = 3;
+    const TYPE_DVR_EDGE = 4;
     const LAST_DEVICES_REPORT = 'last_devices_report';
 
     public $fa;
@@ -70,6 +72,7 @@ class Core
                 break;
 
             case self::TYPE_EDGE:
+            case self::TYPE_DVR_ORIGIN:
                 return $this->app_name ."/$feed_id";
                 break;
         }
@@ -132,6 +135,14 @@ class Core
         $this->matrix_cfg = $m_cfg;
 
         file_put_contents($this->app_file, json_encode($this->matrix_cfg));
+
+        return $this;
+    }
+
+    public function updateAuthUrl()
+    {
+        $url = $this->ma->getAnswerArg(MatrixApi::STREAM_AUTH_URL);
+        $this->fa->setGlobalAuth($url);
 
         return $this;
     }

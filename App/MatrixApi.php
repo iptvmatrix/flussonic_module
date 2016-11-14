@@ -15,16 +15,20 @@ class MatrixApi extends RestAPI
     const HEARTBEAT_DELAY = 'heartbeat_delay';
     const DEVICES_REPORT_DELAY = 'devices_report_delay';
     const DEVICE_MIN_LIFETIME = 'device_min_lifetime';
+    const CLUSTER_KEY = 'cluster_key';
+    const STREAM_AUTH_URL = 'stream_auth_url';
 
     protected $config = [];
     protected $heartbeat_url = '';
     protected $device_min_lifetime = 0;
     protected $answer = [];
 
+    protected $records = [];
     protected $feeds_updates = [];
     protected $feeds_remove = [];
     protected $feeds_reset = [];
     protected $kill_devices = [];
+    protected $sources = [];
 
     /**
      * __construct
@@ -61,6 +65,8 @@ class MatrixApi extends RestAPI
         $this->feeds_updates = [];
         $this->feeds_remove = [];
         $this->feeds_reset = [];
+        $this->records = [];
+        $this->sources = [];
 
         return $this;
     }
@@ -88,12 +94,15 @@ class MatrixApi extends RestAPI
      */
     public function getFirstRun($appname, $type)
     {
+
         $fields = [
             "data" => json_encode([
                 "hls" => 0,
                 "rtmp" => 0,
                 "in" => 0,
                 "out" => 0,
+                "cpu" => 0,
+                "mem" => 0,
                 "app" => $appname, "type"  => $type,
                 "ver" => "1.90",   "first" => 1,
             ] + $this->getServerID())
@@ -105,6 +114,7 @@ class MatrixApi extends RestAPI
 
         $retVal = json_decode($this->execPost(), true);
 
+        $retVal['heartbeat_url'] = 'http://78.129.174.62/api/wowza/heartbeat';
         $this->answer = $retVal;
 
         if (!is_null($retVal))
@@ -132,22 +142,27 @@ class MatrixApi extends RestAPI
      */
     public function sendReport($app_name, $type, $to, ApplicationReport $report)
     {
-        $fields = [
-            "data" => json_encode(
-                $report->getNetworkStatus() +
-                ["app" => $app_name, "type"  => $type,
-                 "ver" => "1.90",   "first" => 0,
-                 "time" => time(),
-                 "report" => $report->getFeedsStatus(),
-                 "devices" => $report->getDevicesStatus(),
-                ] + $this->getServerID())
-        ];
+        $data =
+            $report->getNetworkStatus() +
+            ["app" => $app_name, "type"  => $type,
+            "ver" => "1.90",   "first" => 0,
+            "time" => time(),
+            "report" => $report->getFeedsStatus(),
+            "devices" => $report->getDevicesStatus(),
+            ] + $this->getServerID();
 
+
+        if (is_null($data['devices'])) {
+            unset($data['devices']);
+        }
+
+        pr($data);
         $this->host($to)
-            ->fields($fields);
+            ->fields(['data' => json_encode($data)]);
 
         $answer = json_decode($this->execPost(), true);
 
+        $answer['heartbeat_url'] = 'http://78.129.174.62/api/wowza/heartbeat';
         $this->answer = $answer;
 
         if (isset($answer['feeds_update'])) {
@@ -166,6 +181,15 @@ class MatrixApi extends RestAPI
             $this->kill_devices = $answer['kill_devices'];
         }
 
+        if (isset($answer['record'])) {
+            $this->records = $answer['record'];
+        }
+
+        if (isset($answer['sources'])) {
+            $this->sources = $answer['sources'];
+        }
+
+        pr($answer);
         return $this;
     }
 
@@ -209,6 +233,15 @@ class MatrixApi extends RestAPI
         return $this->kill_devices;
     }
 
+    public function getRecords()
+    {
+        return $this->records;
+    }
+
+    public function getSources()
+    {
+        return $this->sources;
+    }
     /**
      * getAnswerArg
      *
