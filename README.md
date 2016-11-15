@@ -20,3 +20,9 @@ Next, you need to clone this repository and run `install.sh` script, be sure, th
 ### 3. Configuration
 
 Configuration file finally located in `/usr/local/net.iptvmatrix/flussonic_module/config/matrix.cfg`
+
+### 4. Updating
+
+1. Remove previus version from your home directory `cd ~ && rm -rf flussonic_module`
+2. Clone this repository `git clone https://github.com/iptvmatrix/flussonic_module.git`
+3. Run update.sh, it will copy new version in default installation folder except tmp files and config `cd ~/flussonic_module && ./update.sh`

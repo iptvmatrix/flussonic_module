@@ -32,6 +32,15 @@ class Client extends Base {
     $this->socket_uri = $uri;
   }
 
+  public function closeConnection()
+  {
+    if ($this->socket) {
+      if (get_resource_type($this->socket) === 'stream') fclose($this->socket);
+      $this->socket = null;
+      echo "closed";
+    }
+  }
+
   public function __destruct() {
     if ($this->socket) {
       if (get_resource_type($this->socket) === 'stream') fclose($this->socket);

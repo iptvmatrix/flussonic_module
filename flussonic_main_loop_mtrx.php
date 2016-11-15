@@ -5,8 +5,14 @@ use App as App;
 // Load config with sections
 $config = parse_ini_file('config/matrix.cfg', 1);
 
-$ma  = new App\MatrixApi($config);
-$fa  = new App\FlussonicApi($config);
+$ma      = new App\MatrixApi($config);
+$fa      = new App\FlussonicApi($config);
+$sysStat = new App\SystemStatus();
+
+$sysStat->obtainIFaces()->initMeasurement();
+
+$server_cpu = $sysStat->getMemoryUsage();
+$server_mem = $sysStat->getCpuUsage();
 
 //if config dont contain apps
 if (empty($config['apps'])) {
@@ -17,10 +23,8 @@ if (empty($config['apps'])) {
 $fa->getStreams();
 $fa->getSessions();
 
-$server_network_status = $fa->getNetworkStatus();
-
-$server_cpu = $fa->getCpuUsage();
-$server_mem = $fa->getMemUsage();
+$server_cpu = $sysStat->getMemoryUsage();
+$server_mem = $sysStat->getCpuUsage();
 
 //index for dvr edge applications. Need for flussonic API
 $dvr_apps = 0;
@@ -60,6 +64,8 @@ foreach ($config['apps'] as $app_name => $type)
     }
 
     // Build report
+    $server_network_status = $sysStat->getNetworkUsage();
+
     $report->setDevicesMinLifetime($app->getConfigArg(App\MatrixApi::DEVICE_MIN_LIFETIME))
         ->setSystemStatus($server_network_status, $server_cpu, $server_mem)
         ->setFeedsStatus($feeds)
@@ -106,7 +112,7 @@ foreach ($config['apps'] as $app_name => $type)
     {
         $stream_name = $app->generateStreamName($channel_id);
         $depth = $data['depth'] * 60 * 60 * 24; //Days to secs
-        $fa->updateDvrChannel($stream_name, $data['streams'], $data['folder'], $depth);
+        pr($fa->updateDvrChannel($stream_name, $data['streams'], $data['folder'], $depth));
 
         $valid_state[] = $stream_name;
     }
@@ -184,6 +190,7 @@ $flussonic_streams = $fa->getAllStreamsFromConfig($flussonic_cfg);
 foreach ($flussonic_streams as $stream_name => $data)
 {
     if (!in_array(split('/', $stream_name)[0], $streams)) {
+        echo "WTF";
         $fa->deleteStream($stream_name);
     }
 }

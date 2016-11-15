@@ -75,6 +75,7 @@ class FlussonicApi extends RestAPI
         $c->send("pulse_subscribe:total_memusage");
 
         $answer = json_decode($c->receive(), true);
+        $c->closeConnection();
         unset($c);
 
         return end(end($answer['total_memusage']['minute'])['data'])[1];
@@ -91,6 +92,7 @@ class FlussonicApi extends RestAPI
         $c->send("pulse_subscribe:cpu_usage");
 
         $answer = json_decode($c->receive(), true);
+        $c->closeConnection();
         unset($c);
 
         return end(end($answer['cpu_usage']['minute'])['data'])[1];
@@ -120,6 +122,7 @@ class FlussonicApi extends RestAPI
             }
         }
 
+        $c->closeConnection();
         unset($c);
 
         return $retArr;
