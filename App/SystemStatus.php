@@ -75,8 +75,8 @@ class SystemStatus {
     {
         if (!is_null($this->network_in) && !is_null($this->network_out)) {
             return [
-                'in'  => ceil($this->network_in  / 1000),
-                'out' => ceil($this->network_out / 1000)
+                'in'  => ceil($this->network_in  * 8 / 1024),
+                'out' => ceil($this->network_out * 8 / 1042)
             ];
         }
 
@@ -99,8 +99,8 @@ class SystemStatus {
         }
 
         return [
-            'in'  => ceil($this->network_in  / 1000),
-            'out' => ceil($this->network_out / 1000)
+            'in'  => ceil($this->network_in  * 8 / 1024),
+            'out' => ceil($this->network_out * 8 / 1024)
         ];
     }
 

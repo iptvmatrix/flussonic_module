@@ -155,11 +155,19 @@ class MatrixApi extends RestAPI
             unset($data['devices']);
         }
 
-        pr($data);
+
         $this->host($to)
             ->fields(['data' => json_encode($data)]);
 
         $answer = json_decode($this->execPost(), true);
+
+        if ($code = $this->getCode() != 200) {
+            die("Api returns $code code");
+        }
+
+        if ($type == Core::TYPE_DVR_ORIGIN && !isset($answer['record'])) {
+            die("Api dvr origin doesnt contain records");
+        }
 
         $this->answer = $answer;
 
