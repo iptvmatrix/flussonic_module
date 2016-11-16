@@ -27,7 +27,7 @@ $server_cpu = $sysStat->getMemoryUsage();
 $server_mem = $sysStat->getCpuUsage();
 
 //index for dvr edge applications. Need for flussonic API
-$dvr_apps = 0;
+$dvr_edge_apps = 0;
 
 foreach ($config['apps'] as $app_name => $type)
 {
@@ -104,26 +104,28 @@ foreach ($config['apps'] as $app_name => $type)
                 $fa->createFeed($stream_name, $url, $persistent = false);
                 break;
         }
+        $fa->disableStreamFormats($stream_name, ['dash', 'hds', 'mpegts', 'rtsp']);
     }
 
 
     //DVR ORIGIN CHANNELS
+    $valid_state = [];
     foreach ($ma->getRecords() as $channel_id => $data)
     {
         $stream_name = $app->generateStreamName($channel_id);
         $depth = $data['depth'] * 60 * 60 * 24; //Days to secs
-        pr($fa->updateDvrChannel($stream_name, $data['streams'], $data['folder'], $depth));
+        $fa->updateDvrChannel($stream_name, $data['streams'], $data['folder'], $depth);
+        $fa->disableStreamFormats($stream_name, ['dash', 'hds', 'mpegts', 'rtsp']);
 
         $valid_state[] = $stream_name;
     }
 
-    //GET REMOVED CHANNELS
-    if (isset($valid_state))
-    {
+    //GET REMOVED DVR CHANNELS
+    if ($type == App\Core::TYPE_DVR_ORIGIN) {
         $current_state = $fa->getFeeds($app_name, $only_names = true);
 
-        foreach (array_diff($valid_state, $current_state) as $stream) {
-            $fa->deleteStream($stream_name);
+        foreach (array_diff($current_state, $valid_state) as $stream) {
+            $fa->deleteStream($stream);
         }
     }
 
@@ -135,7 +137,8 @@ foreach ($config['apps'] as $app_name => $type)
     //DVR EDGE
     foreach ($ma->getSources() as $source)
     {
-        echo "<br>DE ANSWER:" . $fa->updateDvrEdge(++$dvr_apps, $app_name, $source);
+        echo "<br>DE ANSWER:" . $fa->updateDvrEdge(++$dvr_edge_apps, $app_name, $source);
+        $fa->disableStreamFormats($dvr_apps, ['dash', 'hds', 'mpegts', 'rtsp'], $isSource = true);
     }
 
     // remove deleted feeds
@@ -196,7 +199,10 @@ foreach ($flussonic_streams as $stream_name => $data)
 }
 
 foreach ($flussonic_sources as $source_id => $data) {
-    if (empty($data['meta']['comment']) || !in_array($data['meta']['comment'], $sources)) {
+    if ($source_id > $dvr_edge_apps ||
+        empty($data['meta']['comment']) ||
+        !in_array($data['meta']['comment'], $sources)
+    ) {
         $fa->deleteSource($source_id);
     }
 }

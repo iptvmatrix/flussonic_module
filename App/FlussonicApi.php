@@ -308,6 +308,21 @@ class FlussonicApi extends RestAPI
         return $this->execBinaryPost($postfield);
     }
 
+    public function disableStreamFormats($stream_name, array $formats, $isSource = false)
+    {
+        $section = $isSource ? 'sources' : 'streams';
+
+        $payload = [$section => [$stream_name => []]];
+
+        foreach ($formats as $format) {
+            $payload[$section][$stream_name][$format."_off"] = true;
+        }
+
+        $this->action("/flussonic/api/modify_config");
+
+        return $this->execBinaryPost(json_encode($payload));
+    }
+
     /**
      * removeAllStreams
      *
