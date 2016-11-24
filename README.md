@@ -35,14 +35,11 @@
 	 add applications in [apps] section, in format
 	 `name=type`
 	 where name is name of Application added in Equipment --> Apps, and types are:
-	 1 - origin
-	 2 - edge
-	 3 - dvr origin
-	 4 - dvr edge
+	 1 - origin / 2 - edge / 3 - dvr origin / 4 - dvr edge
 	 
 4. Run installation script `cd flussonic_module && sudo ./install.sh`
 5. Script will print the settings for the crontab. Copy and paste it into cron with `crontab -e`
-6. Start the Flussonic
+6. Start Flussonic
 
 ### 3. Changing configuration after installation
 
