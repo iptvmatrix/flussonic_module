@@ -515,6 +515,13 @@ class FlussonicApi extends RestAPI
 
     public function setServerClusterKey($key)
     {
+        $this->action("/flussonic/api/read_config");
+        $current_key = json_decode($this->execGet(), true)["cluster_key"];
+
+        if ($current_key === $key) {
+            return true;
+        }
+
         $this->action("/flussonic/api/modify_config");
 
         return $this->execBinaryPost(json_encode(["cluster_key" => $key]));

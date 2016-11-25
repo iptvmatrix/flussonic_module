@@ -23,7 +23,7 @@ class FlussonicStream
         $self->name = $stream['name'];
 
         foreach ($stream['urls'] as $src) {
-            $self->sources[] = $src['value'] . "a";
+            $self->sources[] = $src['value'];
         }
 
         $self->outputs['hds_off']    = (int) $stream['hds_off'];
