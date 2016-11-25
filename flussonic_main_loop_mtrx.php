@@ -22,6 +22,7 @@ if (empty($config['apps'])) {
 //Get all streams and connections from flussonic
 $fa->getStreams();
 $fa->getSessions();
+$fa->getSources();
 
 $server_cpu = $sysStat->getMemoryUsage();
 $server_mem = $sysStat->getCpuUsage();
@@ -104,7 +105,6 @@ foreach ($config['apps'] as $app_name => $type)
                 $fa->createFeed($stream_name, $url, $persistent = false);
                 break;
         }
-        $fa->disableStreamFormats($stream_name, ['dash', 'hds', 'mpegts', 'rtsp']);
     }
 
 
@@ -115,7 +115,6 @@ foreach ($config['apps'] as $app_name => $type)
         $stream_name = $app->generateStreamName($channel_id);
         $depth = $data['depth'] * 60 * 60 * 24; //Days to secs
         $fa->updateDvrChannel($stream_name, $data['streams'], $data['folder'], $depth);
-        $fa->disableStreamFormats($stream_name, ['dash', 'hds', 'mpegts', 'rtsp']);
 
         $valid_state[] = $stream_name;
     }
@@ -137,8 +136,7 @@ foreach ($config['apps'] as $app_name => $type)
     //DVR EDGE
     foreach ($ma->getSources() as $source)
     {
-        echo "<br>DE ANSWER:" . $fa->updateDvrEdge(++$dvr_edge_apps, $app_name, $source);
-        $fa->disableStreamFormats($dvr_apps, ['dash', 'hds', 'mpegts', 'rtsp'], $isSource = true);
+        $fa->updateDvrEdge(++$dvr_edge_apps, $app_name, $source);
     }
 
     // remove deleted feeds
@@ -167,6 +165,10 @@ foreach ($config['apps'] as $app_name => $type)
         $app->setConfigArg(App\MatrixApi::DEVICE_MIN_LIFETIME, $value);
     }
 
+    if ($url = $ma->getAnswerArg(App\MatrixApi::STREAM_AUTH_URL)) {
+        $this->fa->setGlobalAuth($url);
+    }
+
     //update last run in state file
     $app->updateStateFileLastRun()
         ->saveMatrixCfg();
@@ -193,14 +195,12 @@ $flussonic_streams = $fa->getAllStreamsFromConfig($flussonic_cfg);
 foreach ($flussonic_streams as $stream_name => $data)
 {
     if (!in_array(split('/', $stream_name)[0], $streams)) {
-        echo "WTF";
         $fa->deleteStream($stream_name);
     }
 }
 
 foreach ($flussonic_sources as $source_id => $data) {
-    if ($source_id > $dvr_edge_apps ||
-        empty($data['meta']['comment']) ||
+    if (empty($data['meta']['comment']) ||
         !in_array($data['meta']['comment'], $sources)
     ) {
         $fa->deleteSource($source_id);

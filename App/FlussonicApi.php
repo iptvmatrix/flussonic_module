@@ -13,6 +13,9 @@ use WebSocket as WebSocket;
 class FlussonicApi extends RestAPI
 {
     protected $config = [];
+    public $streams_objs = [];
+    public $sources_objs = [];
+
 
     public function __construct($config)
     {
@@ -152,10 +155,36 @@ class FlussonicApi extends RestAPI
         $c->send("streams");
 
         $answer = json_decode($c->receive(), true);
+
         $this->streams = $answer['streams'];
-        unset($c);
+
+        foreach ($this->streams as $stream) {
+            $streamObj = FlussonicStream::createFromArray($stream);
+            $this->streams_objs[$streamObj->name] = $streamObj;
+        }
+
 
         return $this->streams;
+    }
+
+    public function getSources()
+    {
+  /*
+        $c = $this->getWSConnection();
+        $c->send("read_config");
+
+        $answer = json_decode($c->receive(), true);
+        $this->sources = isset($answer['data']['sources']) ? $answer['data']['sources'] : [];
+
+        foreach ($this->sources as $source) {
+            $obj = FlussonicSource::createFromArray($source);
+            $this->sources_objs[$obj->position] = $obj;
+        }
+
+        unset($c);
+   */
+        return $this->getDvrEdges([]);
+
     }
 
     /**
@@ -291,6 +320,16 @@ class FlussonicApi extends RestAPI
         return $retArr;
     }
 
+    public function getStreamObj($name)
+    {
+        return isset($this->streams_objs[$name]) ? $this->streams_objs[$name] : [];
+    }
+
+    public function getSourceObj($position)
+    {
+        return isset($this->sources_objs[$position]) ? $this->sources_objs[$position] : [];
+    }
+
     /**
      * createFeed
      *
@@ -301,11 +340,29 @@ class FlussonicApi extends RestAPI
      */
     public function createFeed($name, $url, $persistent = true)
     {
+        if ($currentStream = $this->getStreamObj($name)) {
+            if (!$currentStream->isOutputsCorrect())
+            {
+                $this->disableStreamFormats($name, ['dash', 'hds', 'mpegts', 'rtsp']);
+            }
+
+            if ($currentStream->isSourcesCorrect($url)) {
+                return true;
+            }
+        }
+
         $streamtype = $persistent ? "stream" : "ondemand";
         $postfield = "$streamtype $name $url";
+
         $this->action("/flussonic/api/config/stream_create");
 
-        return $this->execBinaryPost($postfield);
+        $result = $this->execBinaryPost($postfield);
+
+        if (!$currentStream) {
+            $this->disableStreamFormats($name, ['dash', 'hds', 'mpegts', 'rtsp']);
+        }
+
+        return $this;
     }
 
     public function disableStreamFormats($stream_name, array $formats, $isSource = false)
@@ -465,28 +522,72 @@ class FlussonicApi extends RestAPI
 
     public function updateDvrChannel($name, array $sources, $storage, $depth)
     {
-        $urls = [];
-        foreach ($sources as $src) {
-            $urls[] = ["url" => $src];
-        }
+        if (!$currentStream = $this->getStreamObj($name))
+        {
+            $urls = [];
+            foreach ($sources as $src) {
+                $urls[] = ["url" => $src];
+            }
 
-        $cfg_arr = json_encode([
-            "streams" =>
-            [
-                $name => [
-                    "name" => $name,
-                    "urls" => $urls,
-                    "dvr"  => [
-                        "root" => $storage,
-                        "dvr_limit" => $depth
+            $cfg_arr = json_encode([
+                "streams" =>
+                [
+                    $name => [
+                        "name" => $name,
+                        "urls" => $urls,
+                        "dash_off" => true,
+                        "hds_off" => true,
+                        "mpegts_off" => true,
+                        "rtsp_off" => true,
+                        "dvr"  => [
+                            "root" => $storage,
+                            "dvr_limit" => $depth
+                        ]
                     ]
                 ]
-            ]
-        ]);
+            ]);
 
-        $this->action("/flussonic/api/modify_config");
+            $this->action("/flussonic/api/modify_config");
+            $result = $this->execBinaryPost($cfg_arr);
 
-        return $this->execBinaryPost($cfg_arr);
+            return $result;
+        }
+
+        $cfg_arr = [];
+
+        if (!$currentStream->isOutputsCorrect())
+        {
+            $this->disableStreamFormats($name, ['dash', 'hds', 'mpegts', 'rtsp']);
+        }
+
+        if (!$currentStream->isSourcesCorrect($sources)) {
+            $urls = [];
+            foreach ($sources as $src) {
+                $urls[] = ["url" => $src];
+            }
+
+            $cfg_arr['urls'] = $urls;
+        }
+
+        if (!$currentStream->isDvrSettingsCorrect($storage, $depth))
+        {
+            $cfg_arr["dvr"] = ["root" => $storage, "dvr_limit" => $depth];
+        }
+
+        if ($cfg_arr) {
+
+            $cfg_arr["name"] = $name;
+
+            $payload = json_encode([
+                "streams" => [$name => $cfg_arr]
+            ]);
+
+            $this->action("/flussonic/api/modify_config");
+
+            return $this->execBinaryPost($payload);
+        }
+
+        return true;
     }
 
     public function getDvrEdges($app_name)
@@ -495,35 +596,90 @@ class FlussonicApi extends RestAPI
             ->execGet();
         $flussonic_cfg = json_decode($json_cfg, true);
 
-        return isset($flussonic_cfg['sources']) ? $flussonic_cfg['sources'] : [];
+        if (!isset($flussonic_cfg['sources'])) {
+            return [];
+        }
+
+        foreach ($flussonic_cfg['sources'] as $source) {
+            $obj = FlussonicSource::createFromArray($source);
+            $this->sources_objs[$obj->position] = $obj;
+        }
     }
 
     public function updateDvrEdge($index, $app_name, $data)
     {
-        $cfg_arr = json_encode([
-            'sources' => [
-                $index => [
-                    "position" => (int) $index,
-                    "urls" => $data['hosts'],
-                    "only" => $data['only'],
-                    "cluster_key" => $data['cluster_key'],
-                    "meta" => ["comment" => $app_name],
-                    "cache" => [
-                        "path" => $data['folder'],
-                        "time_limit" => $data['cache'] * 60 * 60 * 24 //Days to sec
-                    ],
+        $time_limit = $data['cache'] * 60 * 60 * 24;
+        if (!$currentSource = $this->getSourceObj($index))
+        {
+            $cfg_arr = json_encode([
+                'sources' => [
+                    $index => [
+                        "position" => (int) $index,
+                        "urls" => $data['hosts'],
+                        "only" => $data['only'],
+                        "cluster_key" => $data['cluster_key'],
+                        "meta" => ["comment" => $app_name],
+                        "dash_off" => true,
+                        "hds_off" => true,
+                        "mpegts_off" => true,
+                        "rtsp_off" => true,
+                        "cache" => [
+                            "path" => $data['folder'],
+                            "time_limit" => $time_limit //Days to sec
+                        ],
+                    ]
                 ]
-            ]
-        ]);
+            ]);
 
-        $this->action("/flussonic/api/modify_config");
+            $this->action("/flussonic/api/modify_config");
 
-        return $this->execBinaryPost($cfg_arr);
+            return $this->execBinaryPost($cfg_arr);
+        }
+
+        $cfg_arr = [];
+
+        if (!$currentSource->isOutputsCorrect())
+        {
+            $this->disableStreamFormats($index, ['dash', 'hds', 'mpegts', 'rtsp'], $isSource = true);
+        }
+
+        if (!$currentSource->isSourcesCorrect($data['hosts']))
+        {
+            $cfg_arr["urls"] = $data["hosts"];
+        }
+
+        if (!$currentSource->isDvrSettingsCorrect($data['folder'], $time_limit)){
+            $cfg_arr["cache"] = ["path" => $data['folder'], "time_limit" => $time_limit];
+        }
+
+        if (!$currentSource->isClusterKeyCorrect($data['cluster_key'])) {
+            $cfg_arr["cluster_key"] = $data['cluster_key'];
+        }
+
+        if (!$currentSource->isAppNameCoorect($app_name)) {
+            $cfg_arr["meta"]["comment"] = $app_name;
+        }
+
+        if ($cfg_arr) {
+            $payload = json_encode(["sources" => [$index => $cfg_arr]]);
+            $this->action("/flussonic/api/modify_config");
+
+            return $this->execBinaryPost($payload);
+        }
+
+        return true;
 
     }
 
     public function setGlobalAuth($url)
     {
+        $this->action("/flussonic/api/read_config");
+        $current_auth_url = json_decode($this->execGet(), true)["auth"]["url"];
+
+        if ($current_auth_url === $url) {
+            return true;
+        }
+
         $this->action("/flussonic/api/modify_config");
 
         return $this->execBinaryPost(json_encode(["auth" => ["url" => $url]]));

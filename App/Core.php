@@ -14,6 +14,16 @@ class Core
     const TYPE_DVR_EDGE = 4;
     const LAST_DEVICES_REPORT = 'last_devices_report';
 
+    public static $correct_outputs = [
+        'hds_off' => 1,
+        'hls_off' => 0,
+        'm4s_off' => 0,
+        'dash_off' => 1,
+        'mpgets_off' => 1,
+        'rtmp_off' => 0,
+        'rtsp_off' => 1,
+    ];
+
     public $fa;
     public $ma;
     public $config;
