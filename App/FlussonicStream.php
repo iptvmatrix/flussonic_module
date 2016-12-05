@@ -17,6 +17,9 @@ class FlussonicStream
     public $dvr_limit = 0;
     public $root = '';
 
+    public $publish_enabled = false;
+    public $publish_password = '';
+
     public static function createFromArray(array $stream)
     {
         $self = new static();
@@ -33,6 +36,9 @@ class FlussonicStream
         $self->outputs['mpgets_off'] = (int) $stream['mpegts_off'];
         $self->outputs['rtmp_off']   = (int) $stream['rtmp_off'];
         $self->outputs['rtsp_off']   = (int) $stream['rtsp_off'];
+
+        $self->publish_enabled  = $stream['publish_enabled'];
+        $self->publish_password = $stream['password'];
 
         if (isset($stream['dvr']['dvr_limit'])) {
             $self->dvr_limit = $stream['dvr']['dvr_limit'];
@@ -62,5 +68,9 @@ class FlussonicStream
     public function isDvrSettingsCorrect($storage, $depth)
     {
         return $this->root === $storage && $this->dvr_limit === $depth;
+    }
+
+    public function isPushCorrect($pwd) {
+        return $this->publish_enabled && $this->publish_password === $pwd;
     }
 }

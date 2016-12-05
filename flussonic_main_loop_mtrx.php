@@ -98,6 +98,9 @@ foreach ($config['apps'] as $app_name => $type)
                 if ($feed['method'] == 1) {
                     $fa->createFeed($stream_name, $url, $persistent = true);
                 }
+                if ($feed['method'] == 2) {
+                    $fa->createPushEndpoint($stream_name, $pwd='mock');
+                }
                 break;
 
             case App\Core::TYPE_EDGE:

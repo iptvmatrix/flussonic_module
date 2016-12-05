@@ -365,6 +365,50 @@ class FlussonicApi extends RestAPI
         return $this;
     }
 
+    public function createPushEndpoint($stream_name, $pwd)
+    {
+        $payload = [];
+        $currentStream = $this->getStreamObj($stream_name);
+
+        if (!$currentStream) {
+            $payload = [
+                'streams' => [
+                    $stream_name => [
+                        'name' => $stream_name,
+                        'urls' => [],
+                        'publish_enabled' => true,
+                        'password' => $pwd
+                    ]
+                ]
+            ];
+
+            $this->disableStreamFormats($stream_name, ['dash', 'hds', 'mpegts', 'rtsp']);
+        }
+        else {
+            if (!$currentStream->isOutputsCorrect())
+            {
+                $this->disableStreamFormats($stream_name, ['dash', 'hds', 'mpegts', 'rtsp']);
+            }
+
+            if (!$currentStream->isPushCorrect($pwd)) {
+                $payload['streams'][$stream_name]['publish_enabled'] = true;
+                $payload['streams'][$stream_name]['password'] = $pwd;
+            }
+
+            if (!$currentStream->isSourcesCorrect([])) {
+                $payload['streams'][$stream_name]['urls'] = [];
+            }
+        }
+
+        if ($payload) {
+            $this->action('/flussonic/api/modify_config');
+
+            return $this->execBinaryPost(json_encode($payload));
+        }
+
+        return true;
+    }
+
     public function disableStreamFormats($stream_name, array $formats, $isSource = false)
     {
         $section = $isSource ? 'sources' : 'streams';
