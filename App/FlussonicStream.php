@@ -37,8 +37,8 @@ class FlussonicStream
         $self->outputs['rtmp_off']   = (int) $stream['rtmp_off'];
         $self->outputs['rtsp_off']   = (int) $stream['rtsp_off'];
 
-        $self->publish_enabled  = $stream['publish_enabled'];
-        $self->publish_password = $stream['password'];
+        $self->publish_enabled  = isset($stream['publish_enabled']) ? $stream['publish_enabled'] : '';
+        $self->publish_password = isset($stream['password']) ? $stream['password'] : '';
 
         if (isset($stream['dvr']['dvr_limit'])) {
             $self->dvr_limit = $stream['dvr']['dvr_limit'];

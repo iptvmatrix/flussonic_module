@@ -99,7 +99,8 @@ foreach ($config['apps'] as $app_name => $type)
                     $fa->createFeed($stream_name, $url, $persistent = true);
                 }
                 if ($feed['method'] == 2) {
-                    $fa->createPushEndpoint($stream_name, $pwd='mock');
+                    $pwd = $feed['password'];
+                    $fa->createPushEndpoint($stream_name, $pwd);
                 }
                 break;
 
