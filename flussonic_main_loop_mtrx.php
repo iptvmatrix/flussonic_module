@@ -198,7 +198,7 @@ $flussonic_streams = $fa->getAllStreamsFromConfig($flussonic_cfg);
 
 foreach ($flussonic_streams as $stream_name => $data)
 {
-    if (!in_array(split('/', $stream_name)[0], $streams)) {
+    if (!in_array(explode('/', $stream_name)[0], $streams)) {
         $fa->deleteStream($stream_name);
     }
 }
