@@ -1,4 +1,7 @@
 #!/bin/bash
+SCRIPT=$(readlink -f "$0")
+SCRIPTPATH=$(dirname "$SCRIPT")
+
 GREEN='\033[0;32m'
 RED='\033[0;31m'
 NC='\033[0m' # No Color
@@ -13,7 +16,7 @@ if [ $? -ne 0 ] ; then
     exit
 fi
 
-cp -R . $install_dir/$module_name
+cp -R $SCRIPTPATH/* $install_dir/$module_name
 rm -rf $install_dir/$module_name/.git
 
 cd $install_dir/$module_name
