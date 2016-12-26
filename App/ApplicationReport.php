@@ -304,7 +304,7 @@ class ApplicationReport
             if ($track['content'] == 'video') {
                 $feed_status['v'] = 1;
                 $feed_status['vc'] = $track['codec'];
-                $feed_status['r'] = $track['size'];
+                $feed_status['r'] = "{$track['pixel_width']}x{$track['pixel_height']}";
             }
             elseif ($track['content'] == 'audio') {
                 $feed_status['a'] = 1;
