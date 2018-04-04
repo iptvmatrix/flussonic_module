@@ -104,7 +104,7 @@ class MatrixApi extends RestAPI
                 "cpu" => 0,
                 "mem" => 0,
                 "app" => $appname, "type"  => $type,
-                "ver" => "1.99",   "first" => 1,
+                "ver" => "2.00",   "first" => 1,
             ] + $this->getServerID())
         ];
 
@@ -144,7 +144,7 @@ class MatrixApi extends RestAPI
         $data =
             $report->getNetworkStatus() +
             ["app" => $app_name, "type"  => $type,
-            "ver" => "1.99",   "first" => 0,
+            "ver" => "2.00",   "first" => 0,
             "time" => time(),
             "report" => $report->getFeedsStatus(),
             "devices" => $report->getDevicesStatus(),
