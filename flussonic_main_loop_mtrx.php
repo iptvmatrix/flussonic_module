@@ -19,6 +19,10 @@ if (empty($config['apps'])) {
     die("No Apps found!");
 }
 
+if (!$fa->isFlussonicAlive()) {
+    die("Flussonic died \n");
+}
+
 //Get all streams and connections from flussonic
 $fa->getStreams();
 $fa->getSessions();

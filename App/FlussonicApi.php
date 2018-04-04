@@ -27,6 +27,17 @@ class FlussonicApi extends RestAPI
     }
 
     /**
+     * isFlussonicAlive
+     *
+     * @return bool
+     */
+    public function isFlussonicAlive()
+    {
+        $this->execGet("/admin");
+        return $this->getCode() !== 500;
+    }
+
+    /**
      * apiGet
      *
      * return json decoded answer from GET request
