@@ -104,16 +104,14 @@ class MatrixApi extends RestAPI
                 "cpu" => 0,
                 "mem" => 0,
                 "app" => $appname, "type"  => $type,
-                "ver" => "2.00",   "first" => 1,
+                "ver" => "2.1",   "first" => 1,
             ] + $this->getServerID())
         ];
 
         $c = $this->config;
         $this->host($c->matrix_url)
             ->fields($fields);
-
         $retVal = json_decode($this->execPost(), true);
-
         $this->answer = $retVal;
 
         if (!is_null($retVal))
@@ -144,7 +142,7 @@ class MatrixApi extends RestAPI
         $data =
             $report->getNetworkStatus() +
             ["app" => $app_name, "type"  => $type,
-            "ver" => "2.00",   "first" => 0,
+            "ver" => "2.1",   "first" => 0,
             "time" => time(),
             "report" => $report->getFeedsStatus(),
             "devices" => $report->getDevicesStatus(),
@@ -160,7 +158,6 @@ class MatrixApi extends RestAPI
             ->fields(['data' => json_encode($data)]);
 
         $answer = json_decode($this->execPost(), true);
-
         if ($code = $this->getCode() != 200) {
             die("Api returns $code code");
         }
@@ -170,6 +167,7 @@ class MatrixApi extends RestAPI
         }
 
         $this->answer = $answer;
+
 
         if (isset($answer['feeds_update'])) {
             $this->feeds_updates = $answer['feeds_update'];

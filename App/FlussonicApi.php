@@ -164,16 +164,29 @@ class FlussonicApi extends RestAPI
     {
         $c = $this->getWSConnection();
         $c->send("streams");
-
         $answer = json_decode($c->receive(), true);
 
         $this->streams = $answer['streams'];
+
+
+        $c->send("read_config");
+        $answer_read = json_decode($c->receive(), true);
+
+        foreach ($this->streams as $index => $stream){
+            $this->streams[$index]['transcoding_options'] = '';
+
+            if (!empty($answer_read['data']['streams'][$stream['name']]['transcoder'])){
+                $transcoding_options = $answer_read['data']['streams'][$stream['name']]['transcoder'];
+
+                $this->streams[$index]['transcoding_options'] = $this->serializeTranscoder($transcoding_options);
+            }
+
+        }
 
         foreach ($this->streams as $stream) {
             $streamObj = FlussonicStream::createFromArray($stream);
             $this->streams_objs[$streamObj->name] = $streamObj;
         }
-
 
         return $this->streams;
     }
@@ -349,21 +362,26 @@ class FlussonicApi extends RestAPI
      * @param bool $persistent
      * @return mixed
      */
-    public function createFeed($name, $url, $persistent = true)
+    public function createFeed($name, $url, $persistent = true, $transcoding = '')
     {
         if ($currentStream = $this->getStreamObj($name)) {
             if (!$currentStream->isOutputsCorrect())
             {
                 $this->disableStreamFormats($name, ['dash', 'hds', 'mpegts', 'rtsp']);
             }
-
-            if ($currentStream->isSourcesCorrect($url)) {
+            if ($currentStream->isSourcesCorrect($url) && $currentStream->isTranscodingCorrect($transcoding)) {
                 return true;
             }
         }
 
         $streamtype = $persistent ? "stream" : "ondemand";
-        $postfield = "$streamtype $name $url";
+
+        $postfield = "$streamtype $name ";
+        if ($transcoding){
+            $postfield .= "{url $url; transcoder $transcoding}";
+        } else {
+            $postfield .= $url;
+        }
 
         $this->action("/flussonic/api/config/stream_create");
 
@@ -376,7 +394,7 @@ class FlussonicApi extends RestAPI
         return $this;
     }
 
-    public function createPushEndpoint($stream_name, $pwd)
+    public function createPushEndpoint($stream_name, $pwd, $transcoding = '')
     {
         $payload = [];
         $currentStream = $this->getStreamObj($stream_name);
@@ -393,6 +411,10 @@ class FlussonicApi extends RestAPI
                 ]
             ];
 
+            if ($transcoding) {
+                $payload['streams'][$stream_name]['transcoder'] = $this->deserializeTranscoder($transcoding);
+            }
+
             $this->disableStreamFormats($stream_name, ['dash', 'hds', 'mpegts', 'rtsp']);
         }
         else {
@@ -408,6 +430,10 @@ class FlussonicApi extends RestAPI
 
             if (!$currentStream->isSourcesCorrect([])) {
                 $payload['streams'][$stream_name]['urls'] = [];
+            }
+
+            if (!$currentStream->isTranscodingCorrect($transcoding)){
+                $payload['streams'][$stream_name]['transcoder'] = $this->deserializeTranscoder($transcoding);
             }
         }
 
@@ -763,5 +789,58 @@ class FlussonicApi extends RestAPI
     public function getAllStreamsFromCOnfig(array $cfg)
     {
         return isset($cfg['streams']) ? $cfg['streams'] : [];
+    }
+
+    protected function serializeTranscoder($transcoder)
+    {
+        if (!$transcoder) {
+            return "";
+        }
+
+        $s = "";
+
+        foreach ($transcoder as $j => $tr)
+        {
+            $k = $tr[0];
+            $v = $tr[1];
+
+            if ($k == "audio_bitrate") {
+                $s .= " ab=" . $this->bitrate($v);
+            } else if ($k == "video_bitrate") {
+                $s .= " vb=" . $this->bitrate($v);
+            } else if (!$k && !$v) {
+                $s .= " ";
+            } else if (count($tr) == 1) {
+                $s .= " " . $k;
+            } else {
+                $s .= " " . $k . "=" . $v;
+            }
+        }
+
+        return trim($s);
+    }
+
+    protected function bitrate ($v)
+    {
+        if ($v == "copy") {
+            return $v;
+        } else if ($v > 0) {
+            return round($v / 1000) . "k";
+        } else {
+            return $v;
+        }
+    }
+
+    protected function deserializeTranscoder($transcoder_s)
+    {
+        if ($transcoder_s == '') {
+            return null;
+        }
+
+        $s = preg_split('/\s+/', $transcoder_s);
+        $parts = array_map(function($part) {
+            return explode("=", $part);
+        }, $s);
+        return $parts;
     }
 }
