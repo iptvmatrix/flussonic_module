@@ -13,6 +13,7 @@ class FlussonicStream
         'rtmp_off' => 0,
         'rtsp_off' => 0
     ];
+    public $transcoding_options = '';
 
     public $dvr_limit = 0;
     public $root = '';
@@ -36,8 +37,10 @@ class FlussonicStream
         $self->outputs['mpgets_off'] = (int) $stream['mpegts_off'];
         $self->outputs['rtmp_off']   = (int) $stream['rtmp_off'];
         $self->outputs['rtsp_off']   = (int) $stream['rtsp_off'];
+        $self->transcoding_options   = $stream['transcoding_options'];
 
         $self->publish_enabled  = isset($stream['publish_enabled']) ? $stream['publish_enabled'] : '';
+
         $self->publish_password = isset($stream['password']) ? $stream['password'] : '';
 
         if (isset($stream['dvr']['dvr_limit'])) {
@@ -61,8 +64,12 @@ class FlussonicStream
         if (!is_array($sources)) {
             $sources = [$sources];
         }
-
         return $this->sources === $sources;
+    }
+
+    public function isTranscodingCorrect($transcoding_string)
+    {
+        return $this->transcoding_options === $transcoding_string;
     }
 
     public function isDvrSettingsCorrect($storage, $depth)

@@ -53,7 +53,6 @@ foreach ($config['apps'] as $app_name => $type)
     }
 
     $report = new App\ApplicationReport($app_name, $type);
-
     // Get streams and connected clients for current app
     switch ($type) {
         case App\Core::TYPE_DVR_EDGE:
@@ -96,15 +95,16 @@ foreach ($config['apps'] as $app_name => $type)
     foreach ($ma->getFeedsUpdates() as $id => $feed)
     {
         $stream_name = $app->generateStreamName($id);
+
         switch ($type) {
             case App\Core::TYPE_ORIGIN:
                 $url = $feed['url'];
                 if ($feed['method'] == 1) {
-                    $fa->createFeed($stream_name, $url, $persistent = true);
+                    $fa->createFeed($stream_name, $url, $persistent = true, trim($feed['transcoding_options']));
                 }
                 if ($feed['method'] == 2) {
                     $pwd = $feed['password'];
-                    $fa->createPushEndpoint($stream_name, $pwd);
+                    $fa->createPushEndpoint($stream_name, $pwd, trim($feed['transcoding_options']));
                 }
                 break;
 
