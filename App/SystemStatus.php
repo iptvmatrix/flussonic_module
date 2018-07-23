@@ -94,8 +94,8 @@ class SystemStatus {
 
         foreach ($this->stats as $iface => $bytes)
         {
-            $this->network_in  += $bytes['end'][self::RECEIVED]    - $bytes['start'][self::RECEIVED];
-            $this->network_out += $bytes['end'][self::TRANSMITTED] - $bytes['start'][self::TRANSMITTED];
+            $this->network_in  += intval($bytes['end'][self::RECEIVED])    - intval($bytes['start'][self::RECEIVED]); //intval for php7
+            $this->network_out += intval($bytes['end'][self::TRANSMITTED]) - intval($bytes['start'][self::TRANSMITTED]);//intval for php7
         }
 
         return [
