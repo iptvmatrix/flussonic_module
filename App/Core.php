@@ -231,7 +231,7 @@ class Core
         $report_delay = $this->getConfigArg(MatrixApi::DEVICES_REPORT_DELAY) / 1000;
         $last_report  = $this->getConfigArg(self::LAST_DEVICES_REPORT);
 
-        return time() > ($last_report + $report_delay);
+        return time() > (intval($last_report) + intval($report_delay));
     }
 
     /**
