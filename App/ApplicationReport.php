@@ -299,7 +299,7 @@ class ApplicationReport
 
         $feed_status['s'] = 1;
 
-        foreach($feed['media_info']['streams'] as $track)
+        foreach($feed['media_info']['tracks'] as $track)
         {
             if ($track['content'] == 'video') {
                 $feed_status['v'] = 1;
